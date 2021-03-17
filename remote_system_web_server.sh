@@ -100,6 +100,7 @@ php7.2-mysql php7.2-imap php7.2-cli php7.2-cgi \
 php-pear php-auth-sasl mcrypt imagemagick libruby \
 php7.2-curl php7.2-intl php7.2-pspell php7.2-recode php7.2-sqlite3 \
 php7.2-tidy php7.2-xmlrpc php7.2-xsl memcached php-memcache \
+php7.2-memcache php7.2-memcached memcached \
 php-imagick php-gettext php7.2-zip php7.2-mbstring \
 fail2ban ntpdate python3 python3-dev python3-pip \
 curl git sudo coreutils pollinate unzip unattended-upgrades cron mariadb-client \
