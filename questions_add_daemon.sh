@@ -65,7 +65,7 @@ DaemonInternalIP='"${NewDaemonInternalIP}"'
 DaemonUser='"${NewDaemonUser}"'
 DaemonPass='"'"''"${NewDaemonPass}"''"'"'
 # Unless you do some serious modifications this installer will not work with any other repo of yiimp!
-YiiMPRepo='https://github.com/cryptopool-builders/yiimp.git'
+YiiMPRepo='https://github.com/Original-Tasty/yiimp.git'
 ' | sudo -E tee $STORAGE_ROOT/yiimp/.$generate.conf >/dev/null 2>&1
 
 # Copy the new config to a static Name
