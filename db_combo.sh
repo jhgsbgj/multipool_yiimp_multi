@@ -4,40 +4,31 @@
 
 source /etc/functions.sh
 source $STORAGE_ROOT/yiimp/.yiimp.conf
-cd $HOME/multipool/yiimp_multi
 
-if [ -d "$HOME/multipool/yiimp_multi" ]; then
-  cd $HOME/multipool/yiimp_multi
-else
-  cd $HOME
-fi
-
-echo -e " Building DB and stratum server...$COL_RESET"
-echo
-echo -e " Installing MariaDB 10.4...$COL_RESET"
+echo Installing MariaDB...
 MARIADB_VERSION='10.4'
 sudo debconf-set-selections <<< "maria-db-$MARIADB_VERSION mysql-server/root_password password $DBRootPassword"
 sudo debconf-set-selections <<< "maria-db-$MARIADB_VERSION mysql-server/root_password_again password $DBRootPassword"
 apt_install mariadb-server mariadb-client
-echo -e "$GREEN Done...$COL_RESET"
 
-echo -e " Creating YiiMP DB...$COL_RESET"
-Q1="CREATE DATABASE IF NOT EXISTS ${YiiMPDBName};"
-Q2="GRANT ALL ON ${YiiMPDBName}.* TO '${YiiMPPanelName}'@'${WebInternalIP}' IDENTIFIED BY '${PanelUserDBPassword}';"
-Q3="GRANT ALL ON ${YiiMPDBName}.* TO '${StratumDBUser}'@'localhost' IDENTIFIED BY '${StratumUserDBPassword}';"
+echo Creating DB users for YiiMP...
+Q1="CREATE DATABASE IF NOT EXISTS yiimpfrontend;"
+Q2="GRANT ALL ON *.* TO 'panel'@'$WebInternalIP' IDENTIFIED BY '$PanelUserDBPassword';"
+Q3="GRANT ALL ON *.* TO 'stratum'@'localhost' IDENTIFIED BY '$StratumUserDBPassword';"
 Q4="FLUSH PRIVILEGES;"
 SQL="${Q1}${Q2}${Q3}${Q4}"
 sudo mysql -u root -p"${DBRootPassword}" -e "$SQL"
 
+echo Creating my.cnf...
 echo '[clienthost1]
-user='"${YiiMPPanelName}"'
+user=panel
 password='"${PanelUserDBPassword}"'
-database='"${YiiMPDBName}"'
+database=yiimpfrontend
 host='"${WebInternalIP}"'
 [clienthost2]
-user="'${StratumDBUser}'"
+user=stratum
 password='"${StratumUserDBPassword}"'
-database='"${YiiMPDBName}"'
+database=yiimpfrontend
 host=localhost
 [mysql]
 user=root
@@ -45,12 +36,14 @@ password='"${DBRootPassword}"'
 ' | sudo -E tee $STORAGE_ROOT/yiimp/.my.cnf >/dev/null 2>&1
 
 sudo chmod 0600 $STORAGE_ROOT/yiimp/.my.cnf
-echo -e "$GREEN DB users and passwords can be found in $STORAGE_ROOT/yiimp/.my.cnf$COL_RESET"
+echo Passwords can be found in $STORAGE_ROOT/yiimp/.my.cnf
 
+echo Importing YiiMP Default database values...
 cd $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/sql
 # import sql dump
-sudo zcat 2019-11-10-yiimp.sql.gz | sudo mysql -u root -p"${DBRootPassword}" ${YiiMPDBName}
-sudo mysql -u root -p"${DBRootPassword}" ${YiiMPDBName} --force < 2018-09-22-workers.sql
+sudo zcat 2019-11-10-yiimp.sql.gz | sudo mysql -u root -p"${DBRootPassword}" yiimpfrontend
+sudo mysql -u root -p"${DBRootPassword}" yiimpfrontend --force < 2018-09-22-workers.sql
+
 sudo sed -i '/max_connections/c\max_connections         = 800' /etc/mysql/my.cnf
 sudo sed -i '/thread_cache_size/c\thread_cache_size       = 512' /etc/mysql/my.cnf
 sudo sed -i '/tmp_table_size/c\tmp_table_size          = 128M' /etc/mysql/my.cnf
@@ -60,9 +53,9 @@ sudo sed -i '/max_allowed_packet/c\max_allowed_packet      = 64M' /etc/mysql/my.
 sudo sed -i 's/#bind-address=0.0.0.0/bind-address='${DBInternalIP}'/g' /etc/mysql/my.cnf
 restart_service mysql;
 wait $!
-echo -e "$GREEN Database build complete...$COL_RESET"
+echo Database build complete...
 
-echo -e " Building blocknotify and stratum...$COL_RESET"
+echo Building blocknotify and stratum...
 sudo mkdir -p $STORAGE_ROOT/yiimp/site/stratum
 sudo mkdir -p $STORAGE_ROOT/yiimp/starts
 cd $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/blocknotify
@@ -76,8 +69,8 @@ if [[ ("$AutoExchange" == "y" || "$AutoExchange" == "Y" || "$AutoExchange" == "y
 sudo sed -i 's/CFLAGS += -DNO_EXCHANGE/#CFLAGS += -DNO_EXCHANGE/' $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/stratum/Makefile
 fi
 hide_output sudo make
-echo -e "$GREEN Done...$COL_RESET"
-echo -e " Building stratum folder structure and copying files...$COL_RESET"
+
+echo Building stratum folder structure and copying files...
 cd $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/stratum
 sudo cp -a config.sample/. $STORAGE_ROOT/yiimp/site/stratum/config
 sudo cp -r stratum $STORAGE_ROOT/yiimp/site/stratum
@@ -87,6 +80,7 @@ sudo cp -r $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/blocknotify/blocknotify $STORAG
 sudo cp -r $STORAGE_ROOT/yiimp/yiimp_setup/yiimp/blocknotify/blocknotify /usr/bin
 
 sudo rm -r $STORAGE_ROOT/yiimp/site/stratum/config/run.sh
+
 echo '#!/usr/bin/env bash
 source /etc/multipool.conf
 source $STORAGE_ROOT/yiimp/.yiimp.conf
@@ -98,29 +92,30 @@ while true; do
 sleep 2
 done
 exec bash' | sudo -E tee $STORAGE_ROOT/yiimp/site/stratum/config/run.sh >/dev/null 2>&1
+
 sudo chmod +x $STORAGE_ROOT/yiimp/site/stratum/config/run.sh
 
 sudo rm -r $STORAGE_ROOT/yiimp/site/stratum/run.sh
+
 echo '#!/usr/bin/env bash
 source /etc/multipool.conf
 source $STORAGE_ROOT/yiimp/.yiimp.conf
 cd '""''"${STORAGE_ROOT}"''""'/yiimp/site/stratum/config/ && ./run.sh $*
 ' | sudo -E tee $STORAGE_ROOT/yiimp/site/stratum/run.sh >/dev/null 2>&1
 sudo chmod +x $STORAGE_ROOT/yiimp/site/stratum/run.sh
-echo -e "$GREEN Done...$COL_RESET"
 
-echo -e " Updating stratum config files with database connection info...$COL_RESET"
+echo Updating stratum config files with database connection info...
 cd $STORAGE_ROOT/yiimp/site/stratum/config
 sudo sed -i 's/password = tu8tu5/password = '${blckntifypass}'/g' *.conf
 sudo sed -i 's/server = yaamp.com/server = '${StratumURL}'/g' *.conf
 sudo sed -i 's/host = yaampdb/host = localhost/g' *.conf
-sudo sed -i 's/database = yaamp/database = '${YiiMPDBName}'/g' *.conf
-sudo sed -i 's/username = root/username = '${StratumDBUser}'/g' *.conf
+sudo sed -i 's/database = yaamp/database = yiimpfrontend/g' *.conf
+sudo sed -i 's/username = root/username = stratum/g' *.conf
 sudo sed -i 's/password = patofpaq/password = '${StratumUserDBPassword}'/g' *.conf
+
 #set permissions
 sudo setfacl -m u:$USER:rwx $STORAGE_ROOT/yiimp/site/stratum/
 sudo setfacl -m u:$USER:rwx $STORAGE_ROOT/yiimp/site/stratum/config
-echo -e "$GREEN Done...$COL_RESET"
 
 # copy blocknotify to daemon servers
 # set daemon user and password
@@ -168,5 +163,7 @@ blocknotify="${blocknotify} chmod +x ${remote_script_blocknotify_path}; > /dev/n
 
 # Execute scripts on remote server
 setsid ssh ${SSH_OPTIONS} ${DaemonUser}@${DaemonServer} "${blocknotify}"
-echo -e "$GREEN DB and stratum server build completed...$COL_RESET"
+
+echo Stratum build complete...
+
 cd $HOME/multipool/yiimp_multi
