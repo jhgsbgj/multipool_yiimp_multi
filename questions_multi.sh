@@ -406,7 +406,7 @@ CoinPort='"${CoinPort}"'
 AutoExchange='"${AutoExchange}"'
 UsingDomain='"${UsingDomain}"'
 # Unless you do some serious modifications this installer will not work with any other repo of yiimp!
-YiiMPRepo='https://github.com/cryptopool-builders/yiimp.git'
+YiiMPRepo='https://github.com/Original-Tasty/yiimp.git'
 ' | sudo -E tee $STORAGE_ROOT/yiimp/.yiimp.conf >/dev/null 2>&1 ;;
 
 1)
